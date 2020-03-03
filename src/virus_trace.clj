@@ -20,33 +20,32 @@
 
 (s/def ::distances-and-steps (s/keys :opt-un [::distances ::steps]))
 
-(defn update-point [point distance-to-update steps distances-and-steps]
+(defn update-point [point distance steps distances-and-steps]
   {:pre  [(string? point)
-          (number? distance-to-update)
+          (number? distance)
           (seqable? steps)
           (s/valid? ::distances-and-steps distances-and-steps)]
    :post [(s/valid? ::distances-and-steps %)]}
 
   (let [current-distance (get-in distances-and-steps [:distances point])]
-    (if (or (nil? current-distance) (< distance-to-update current-distance))
+    (if (or (nil? current-distance) (< distance current-distance))
       (-> distances-and-steps
-          (assoc-in [:distances point] distance-to-update)
+          (assoc-in [:distances point] distance)
           (assoc-in [:steps point] steps))
       distances-and-steps)))
 
 (defn visit [{:keys [start dictionary distances steps]}]
   (let [neighbours-of-start (neighbours start dictionary)
         distances-to-start (get distances start)
-        steps-to-start (get steps start)
-        updated-distance-steps (reduce #(update-point
-                                          %2
-                                          (+ 1 distances-to-start)
-                                          (conj steps-to-start start)
-                                          %1)
-                                       {:distances distances
-                                        :steps     steps}
-                                       neighbours-of-start)]
-    updated-distance-steps))
+        steps-to-start (get steps start)]
+    (reduce #(update-point
+               %2
+               (+ 1 distances-to-start)
+               (conj steps-to-start start)
+               %1)
+            {:distances distances
+             :steps     steps}
+            neighbours-of-start)))
 
 (defn solved? [target-point visited {distances :distances}]
   (and (contains? distances target-point)
@@ -65,21 +64,20 @@
   {:solved true
    :steps  []}
   (loop [visited #{}
-         distances-and-steps {:distances {source 0} :steps {source []}}
+         {:keys [distances steps] :as distances-and-steps} {:distances {source 0} :steps {source []}}
          dictionary (filter #(= (count source) (count %)) dictionary)]
-    (when-let [one-solution (get-in distances-and-steps [:steps target])]
+    (when-let [one-solution (steps target)]
       (printf "A possible answer found: %s\n" one-solution))
     (cond
       (solved-for-distance-one? target distances-and-steps)
       (do
-        (printf "Visited: %s; Known transforms: %s\n" (count visited) (count (:distances distances-and-steps)))
+        (printf "Visited: %s; Known transforms: %s\n" (count visited) (count distances))
         {:solved true
-         :steps  (get-in distances-and-steps [:steps target])})
-      (= (count visited) (count (:distances distances-and-steps)))
+         :steps  (steps target)})
+      (= (count visited) (count distances))
       {:solved false}
       :else
-      (let [to-visit (next-visit visited (:distances distances-and-steps))]
-
+      (let [to-visit (next-visit visited distances)]
         (recur
           (conj visited to-visit)
           (visit (merge {:start      to-visit
