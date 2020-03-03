@@ -53,6 +53,10 @@
        (= (get distances target-point)
           (apply min (vals (apply dissoc distances visited))))))
 
+(defn solved-for-distance-one? [target-point {distances :distances}]
+  "In this special case, since proximate distance is always one, as long as a distance is found it's the best solution"
+  (contains? distances target-point))
+
 (defn next-visit [visited distances]
   (key (first (sort-by val (apply dissoc distances visited)))))
 
@@ -66,14 +70,16 @@
     (when-let [one-solution (get-in distances-and-steps [:steps target])]
       (printf "A possible answer found: %s\n" one-solution))
     (cond
-      (solved? target visited distances-and-steps)
-      {:solved true
-       :steps  (get-in distances-and-steps [:steps target])}
+      (solved-for-distance-one? target distances-and-steps)
+      (do
+        (printf "Visited: %s; Known transforms: %s\n" (count visited) (count (:distances distances-and-steps)))
+        {:solved true
+         :steps  (get-in distances-and-steps [:steps target])})
       (= (count visited) (count (:distances distances-and-steps)))
       {:solved false}
       :else
       (let [to-visit (next-visit visited (:distances distances-and-steps))]
-        (printf "Visited: %s; Known transforms: %s\n" (count visited) (count (:distances distances-and-steps)))
+
         (recur
           (conj visited to-visit)
           (visit (merge {:start      to-visit
