@@ -1,6 +1,11 @@
 (ns virus-trace
   (:require [clojure.spec.alpha :as s]))
 
+
+(defn load-dictionary []
+  (with-open [rdr (clojure.java.io/reader "wordlist.txt")]
+    (reduce conj [] (line-seq rdr))))
+
 (defn neighbour? [string1 string2]
   (if (= (count string1) (count string2))
     (= 1
@@ -57,7 +62,9 @@
    :steps  []}
   (loop [visited #{}
          distances-and-steps {:distances {source 0} :steps {source []}}
-         dictionary dictionary]
+         dictionary (filter #(= (count source) (count %)) dictionary)]
+    (when-let [one-solution (get-in distances-and-steps [:steps target])]
+      (printf "A possible answer found: %s\n" one-solution))
     (cond
       (solved? target visited distances-and-steps)
       {:solved true
@@ -66,9 +73,19 @@
       {:solved false}
       :else
       (let [to-visit (next-visit visited (:distances distances-and-steps))]
+        (printf "Visited: %s; Known transforms: %s\n" (count visited) (count (:distances distances-and-steps)))
         (recur
           (conj visited to-visit)
           (visit (merge {:start      to-visit
                          :dictionary dictionary}
                         distances-and-steps))
           dictionary)))))
+
+
+(defn -main [& args]
+  (if-not (= 2 (count args))
+    (throw (Exception. "Must provide source word and target word as arguments"))
+    (time (println (solve {
+                           :source     (first args)
+                           :target     (second args)
+                           :dictionary (load-dictionary)})))))
